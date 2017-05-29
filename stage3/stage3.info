@@ -1,0 +1,5 @@
+name = Stage 3
+description = Stage 3 test module
+core = 7.x
+package = Other
+php = 5.3

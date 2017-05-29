@@ -1,0 +1,165 @@
+<?php
+
+/**
+ * @file
+ * A test module that doing something.
+ */
+
+/**
+ * Implements hook_help().
+ *
+ * Displays help and module information.
+ *
+ * @param path 
+ *   Which path of the site we're using to display help
+ * @param arg 
+ *   Array that holds the current path as returned from arg() function
+ */
+function stage3_help($path, $arg) {
+  switch ($path) {
+    case "admin/help#stage3":
+      return t("This is test module to stage 3 task."); 
+      break; 
+  }
+}
+
+/**
+ * Implements hook_menu().
+ *
+ * Enables modules to register paths.
+ */
+function stage3_menu() {
+  $items['home'] = array(
+    'page callback' => '_stage3_home_view',
+    'title' => 'Home',
+    'description' => 'This is main page.',
+    'access callback' => TRUE,
+    'menu_name' => 'main-menu',
+  );
+  $items['custom_404'] = array(
+    'page callback' => '_stage3_404_view',
+    'title' => 'Error 404',
+    'description' => 'Page not found.',
+    'access callback' => TRUE,
+    //'menu_name' => 'main-menu',
+  );
+  $items['custom_403'] = array(
+    'page callback' => '_stage3_403_view',
+    'title' => 'Error 403',
+    'description' => 'Forbidden.',
+    'access callback' => TRUE,
+    //'menu_name' => 'main-menu',
+  );
+  return $items;
+}
+
+/**
+ * Try to show home page
+ */
+function _stage3_home_view() {
+  return 'Welcome!';
+}
+
+/**
+ * Show 404 page
+ */
+function _stage3_404_view() {
+  return 'Error 404: Page not found!';
+}
+
+/**
+ * Show 403 page
+ */
+function _stage3_403_view() {
+  return 'Error 403: Forbidden!';
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function stage3_block_info() {
+  $blocks['stage3_block'] = array(
+    // The name that will appear in the block list.
+    'info' => t('Stage 3 block'),
+    // Default setting.
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+    //'region' => 'featured',
+    'visibility' => BLOCK_VISIBILITY_NOTLISTED,
+  );
+  return $blocks;
+}
+
+/**
+ * Custom content function. 
+ * 
+ * Set beginning and end dates, retrieve posts from database
+ * saved in that time period.
+ * 
+ * @return 
+ *   A result set of the targeted posts.
+ */
+function _stage3_block_contents() {
+  //Get today's date.
+  $today = getdate();
+  //Calculate the date a week ago.
+  $start_time = mktime(0, 0, 0, $today['mon'], ($today['mday'] - 7), $today['year']);
+  //Get all posts from one week ago to the present.
+  $end_time = time();
+
+  //Use Database API to retrieve current posts.
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid', 'title', 'created'))
+    ->condition('status', 1) //Published.
+    ->condition('created', array($start_time, $end_time), 'BETWEEN')
+    ->orderBy('created', 'DESC') //Most recent first.
+    ->execute(); 
+  return $query;  
+}
+
+/**
+ * Implements hook_block_view().
+ * 
+ * Prepares the contents of the block.
+ */
+function stage3_block_view($delta = '') {
+  switch ($delta) {
+    case 'stage3_block':
+      $block['subject'] = t('Latest articles');
+      if (user_access('access stage3 block content')) {
+        // Use our custom function to retrieve data.
+        $result = _stage3_block_contents();
+        // Array to contain items for the block to render.
+        $items = array();
+        // Iterate over the result set and format as links.
+        foreach ($result as $node) {
+          $items[] = array(
+            'data' => l($node->title, 'node/' . $node->nid),
+          );
+        }
+        // No content in the last week.
+        if (empty($items)) {
+          $block['content'] = t('No posts available.');  
+        }
+        else {
+          //Pass data through theme function.
+          $block['content'] = theme('item_list', array(
+            'items' => $items));
+        }  
+      }
+      else {
+        $block['content'] = t('Access to view this content is denied.');
+      }
+      return $block;
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function stage3_permission() {
+  return array(
+    'access stage3 block content' => array(
+      'title' => t('Access content for the Stage 3 module block'),
+    )
+  );
+}
